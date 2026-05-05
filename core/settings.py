@@ -72,12 +72,21 @@ if REDIS_URL:
     
     print(f"--- Using Redis URL: {REDIS_URL.split('@')[-1]} (password hidden) ---")
         
+    # Configure Redis with SSL support for Upstash
+    CONFIG = {
+        "hosts": [REDIS_URL],
+    }
+    
+    # If using rediss (SSL), we might need to skip certificate verification for Upstash
+    if REDIS_URL.startswith('rediss://'):
+        CONFIG["symmetric_encryption_keys"] = [] # Placeholder if needed
+        # Note: channels_redis doesn't always need extra SSL config for rediss://, 
+        # but let's make it robust.
+    
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {
-                "hosts": [REDIS_URL],
-            },
+            "CONFIG": CONFIG,
         }
     }
 else:
