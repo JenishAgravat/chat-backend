@@ -3,18 +3,22 @@ from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
 from graphql_jwt.utils import jwt_decode
 from django.conf import settings
+import traceback
 
 User = get_user_model()
 
 @database_sync_to_async
 def get_user(token):
     try:
-        # Use graphql_jwt's own decoder for consistency
+        print(f"--- WebSocket Auth Attempt with token length: {len(token)} ---")
         payload = jwt_decode(token)
-        user = User.objects.get(username=payload.get('username'))
+        username = payload.get('username')
+        print(f"Decoded token for user: {username}")
+        user = User.objects.get(username=username)
         return user
     except Exception as e:
-        print(f"WebSocket auth error: {e}")
+        print(f"WebSocket auth error: {str(e)}")
+        # print(traceback.format_exc())
         return AnonymousUser()
 
 class TokenAuthMiddleware:
@@ -24,13 +28,18 @@ class TokenAuthMiddleware:
     async def __call__(self, scope, receive, send):
         query_string = scope.get("query_string", b"").decode()
         token = None
-        for param in query_string.split("&"):
-            if param.startswith("token="):
-                token = param.split("=")[1]
+        
+        # More robust token extraction
+        if "token=" in query_string:
+            try:
+                token = query_string.split("token=")[1].split("&")[0]
+            except Exception:
+                pass
         
         if token:
             scope['user'] = await get_user(token)
         else:
+            print("No token found in query string")
             scope['user'] = AnonymousUser()
         
         return await self.inner(scope, receive, send)
