@@ -119,9 +119,8 @@ STORAGES = {
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# ─── CORS ───
-CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if os.environ.get('CORS_ALLOWED_ORIGINS') else []
-CORS_ALLOW_ALL_ORIGINS = DEBUG  # Only allow all in development
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 
 # ─── GraphQL / JWT ───
 GRAPHENE = {
