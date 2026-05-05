@@ -8,22 +8,31 @@ User = get_user_model()
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.user = self.scope["user"]
+        print(f"--- Consumer Connect: User is {self.user} ---")
+        
         if self.user.is_anonymous:
+            print("Closing connection: User is Anonymous")
             await self.close()
             return
         
-        self.user_group_name = f"user_{self.user.id}"
-        await self.channel_layer.group_add(self.user_group_name, self.channel_name)
-        await self.channel_layer.group_add("global_presence", self.channel_name)
-        
-        await self.set_online_status(True)
-        await self.channel_layer.group_send("global_presence", {
-            "type": "user_status",
-            "user_id": self.user.id,
-            "is_online": True
-        })
-        
-        await self.accept()
+        try:
+            self.user_group_name = f"user_{self.user.id}"
+            await self.channel_layer.group_add(self.user_group_name, self.channel_name)
+            await self.channel_layer.group_add("global_presence", self.channel_name)
+            
+            await self.set_online_status(True)
+            await self.channel_layer.group_send("global_presence", {
+                "type": "user_status",
+                "user_id": self.user.id,
+                "is_online": True
+            })
+            
+            await self.accept()
+            print(f"WebSocket Connected successfully for user {self.user.username}")
+        except Exception as e:
+            print(f"Error during connect: {str(e)}")
+            await self.close()
+
 
     async def disconnect(self, close_code):
         if not hasattr(self, "user") or self.user.is_anonymous:
