@@ -64,6 +64,10 @@ ASGI_APPLICATION = 'core.asgi.application'
 # ─── Channel Layer (Redis in prod, InMemory in dev) ───
 REDIS_URL = os.environ.get('REDIS_URL')
 if REDIS_URL:
+    # Ensure URL starts with redis:// or rediss://
+    if not (REDIS_URL.startswith('redis://') or REDIS_URL.startswith('rediss://')):
+        REDIS_URL = f"redis://{REDIS_URL}"
+        
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
