@@ -7,7 +7,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ─── Security ───
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-((_3$r+urkcl62kdnnwcn+f)ul)k_lqrw%#lzr0z7rpvh17(uk')
 DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
+ALLOWED_HOSTS = [
+    host.replace('https://', '').replace('http://', '').strip('/') 
+    for host in os.environ.get('ALLOWED_HOSTS', '*').split(',')
+]
 
 # ─── Apps ───
 INSTALLED_APPS = [
