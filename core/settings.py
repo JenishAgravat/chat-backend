@@ -62,11 +62,15 @@ WSGI_APPLICATION = 'core.wsgi.application'
 ASGI_APPLICATION = 'core.asgi.application'
 
 # ─── Channel Layer (Redis in prod, InMemory in dev) ───
-REDIS_URL = os.environ.get('REDIS_URL')
+REDIS_URL = os.environ.get('REDIS_URL', '').strip()
 if REDIS_URL:
+    # Remove trailing slash if present
+    REDIS_URL = REDIS_URL.rstrip('/')
     # Ensure URL starts with redis:// or rediss://
     if not (REDIS_URL.startswith('redis://') or REDIS_URL.startswith('rediss://')):
         REDIS_URL = f"redis://{REDIS_URL}"
+    
+    print(f"--- Using Redis URL: {REDIS_URL.split('@')[-1]} (password hidden) ---")
         
     CHANNEL_LAYERS = {
         "default": {
