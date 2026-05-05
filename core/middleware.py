@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
-import jwt
+from graphql_jwt.utils import jwt_decode
 from django.conf import settings
 
 User = get_user_model()
@@ -9,7 +9,8 @@ User = get_user_model()
 @database_sync_to_async
 def get_user(token):
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+        # Use graphql_jwt's own decoder for consistency
+        payload = jwt_decode(token)
         user = User.objects.get(username=payload.get('username'))
         return user
     except Exception as e:
