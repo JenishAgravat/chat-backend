@@ -12,6 +12,22 @@ ALLOWED_HOSTS = [
     for host in os.environ.get('ALLOWED_HOSTS', '*').split(',')
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    f"https://{host}" if not host.startswith('http') else host
+    for host in ALLOWED_HOSTS if host != '*'
+]
+# Ensure localhost is trusted in dev if not already there
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS += ["http://localhost:8000", "http://127.0.0.1:8000"]
+
+# Handle Render's specific environment variable
+render_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if render_host:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{render_host}")
+
+# Explicitly add your specific Render domain to be 100% sure
+CSRF_TRUSTED_ORIGINS.append("https://chat-backend-nmg2.onrender.com")
+
 # ─── Apps ───
 INSTALLED_APPS = [
     'daphne',
@@ -62,31 +78,46 @@ WSGI_APPLICATION = 'core.wsgi.application'
 ASGI_APPLICATION = 'core.asgi.application'
 
 # ─── Channel Layer (Redis in prod, InMemory in dev) ───
-REDIS_URL = os.environ.get('REDIS_URL', '').strip()
-if REDIS_URL:
-    # Remove trailing slash if present
-    REDIS_URL = REDIS_URL.rstrip('/')
-    # Ensure URL starts with redis:// or rediss://
+RAW_REDIS_URL = os.environ.get('REDIS_URL', '').strip()
+if RAW_REDIS_URL:
+    import re
+    # Debug print to see EXACTLY what is in the environment
+    print(f"--- REDIS DEBUG START ---")
+    print(f"RAW_REDIS_URL: '{RAW_REDIS_URL}'")
+    
+    # 1. Clean quotes
+    temp_url = RAW_REDIS_URL.strip("'").strip('"').strip()
+    
+    # 2. Try to extract a full URL (redis:// or rediss://)
+    url_match = re.search(r'(rediss?://[^\s\'"]+)', temp_url)
+    if url_match:
+        REDIS_URL = url_match.group(1)
+    else:
+        # 3. Try to extract what follows the -u flag
+        u_match = re.search(r'-u\s+([^\s\'"]+)', temp_url)
+        if u_match:
+            REDIS_URL = u_match.group(1)
+        else:
+            # 4. Fallback: take the last non-whitespace part (likely the host:port)
+            parts = temp_url.split()
+            REDIS_URL = parts[-1] if parts else temp_url
+    
+    # Final cleanup of any trailing garbage or quotes
+    REDIS_URL = REDIS_URL.strip("'").strip('"').rstrip('/')
+    
+    # Ensure URL starts with redis:// or rediss:// if it's just host:port
     if not (REDIS_URL.startswith('redis://') or REDIS_URL.startswith('rediss://')):
         REDIS_URL = f"redis://{REDIS_URL}"
     
-    print(f"--- Using Redis URL: {REDIS_URL.split('@')[-1]} (password hidden) ---")
+    print(f"CLEANED_REDIS_URL: '{REDIS_URL}'")
+    print(f"--- REDIS DEBUG END ---")
         
-    # Configure Redis with SSL support for Upstash
-    CONFIG = {
-        "hosts": [REDIS_URL],
-    }
-    
-    # If using rediss (SSL), we might need to skip certificate verification for Upstash
-    if REDIS_URL.startswith('rediss://'):
-        CONFIG["symmetric_encryption_keys"] = [] # Placeholder if needed
-        # Note: channels_redis doesn't always need extra SSL config for rediss://, 
-        # but let's make it robust.
-    
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": CONFIG,
+            "CONFIG": {
+                "hosts": [REDIS_URL],
+            },
         }
     }
 else:

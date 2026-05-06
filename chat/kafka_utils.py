@@ -5,19 +5,24 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.conf import settings
 
-KAFKA_BROKER = 'localhost:9092'
-KAFKA_TOPIC = 'chat_messages'
+import os
+
+KAFKA_BROKER = os.environ.get('KAFKA_BROKER')
+KAFKA_TOPIC = os.environ.get('KAFKA_TOPIC', 'chat_messages')
 
 def get_producer():
+    if not KAFKA_BROKER:
+        return None
     try:
         return KafkaProducer(
             bootstrap_servers=[KAFKA_BROKER],
             value_serializer=lambda x: json.dumps(x).encode('utf-8'),
-            max_block_ms=1000,
-            request_timeout_ms=1000,
-            api_version_auto_timeout_ms=1000
+            max_block_ms=500, # Reduced from 1000 to minimize lag
+            request_timeout_ms=500,
+            api_version_auto_timeout_ms=500
         )
-    except Exception:
+    except Exception as e:
+        print(f"Kafka Producer init failed: {e}")
         return None
 
 producer = get_producer()
@@ -33,7 +38,7 @@ def send_message_event(sender_id, receiver_id, content, reply_to_id=None):
     if producer:
         try:
             future = producer.send(KAFKA_TOPIC, value=data)
-            future.get(timeout=1.0)
+            future.get(timeout=0.5)
         except Exception as e:
             print(f"Kafka delivery failed, falling back to sync: {e}")
             handle_message_sync(data)
@@ -116,5 +121,8 @@ def start_kafka_consumer():
         pass
 
 def init_consumer():
+    if not KAFKA_BROKER:
+        print("Kafka not configured, skipping consumer initialization.")
+        return
     t = threading.Thread(target=start_kafka_consumer, daemon=True)
     t.start()
