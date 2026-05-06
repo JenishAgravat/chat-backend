@@ -76,8 +76,14 @@ class AddReaction(graphene.Mutation):
     def mutate(self, info, message_id, reaction):
         """Toggle reaction on a message — just saves to DB. 
         Real-time broadcast is handled by the WebSocket consumer."""
+        user = info.context.user
         try:
             msg = Message.objects.get(id=message_id)
+            
+            # LOOPHOLE FIX: Check if user is part of this conversation
+            if msg.sender != user and msg.receiver != user:
+                raise Exception("Not authorized to react to this message")
+                
             # Toggle: if same reaction, remove it; otherwise set it
             if msg.reaction == reaction:
                 msg.reaction = None

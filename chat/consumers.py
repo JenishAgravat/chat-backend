@@ -52,16 +52,32 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message_type = data.get('type')
 
         if message_type == 'chat_message':
-            receiver_id = data['receiver_id']
-            content = data['content']
+            receiver_id = data.get('receiver_id')
+            content = data.get('content', '').strip()
             reply_to_id = data.get('reply_to', None)
+            
+            # LOOPHOLE FIX: Basic validation
+            if not receiver_id or not content:
+                return
+            
+            if len(content) > 3000: # Prevent massive payloads
+                return
+
+            # Check if receiver exists to avoid crashes in threads
+            if not await self.user_exists(receiver_id):
+                return
             
             await self.produce_message(self.user.id, receiver_id, content, reply_to_id)
 
         elif message_type == 'add_reaction':
-            message_id = data['message_id']
-            reaction = data['reaction']
-            await self.save_reaction(message_id, reaction)
+            message_id = data.get('message_id')
+            reaction = data.get('reaction')
+            if message_id and reaction:
+                await self.save_reaction(message_id, reaction)
+
+    @database_sync_to_async
+    def user_exists(self, user_id):
+        return User.objects.filter(id=user_id).exists()
 
     @database_sync_to_async
     def set_online_status(self, status):
