@@ -10,22 +10,33 @@ import os
 KAFKA_BROKER = os.environ.get('KAFKA_BROKER')
 KAFKA_TOPIC = os.environ.get('KAFKA_TOPIC', 'chat_messages')
 
+_producer = None
+_producer_lock = threading.Lock()
+
 def get_producer():
+    global _producer
     if not KAFKA_BROKER:
         return None
-    try:
-        return KafkaProducer(
-            bootstrap_servers=[KAFKA_BROKER],
-            value_serializer=lambda x: json.dumps(x).encode('utf-8'),
-            max_block_ms=500, # Reduced from 1000 to minimize lag
-            request_timeout_ms=500,
-            api_version_auto_timeout_ms=500
-        )
-    except Exception as e:
-        print(f"Kafka Producer init failed: {e}")
-        return None
+    
+    if _producer is not None:
+        return _producer
 
-producer = get_producer()
+    with _producer_lock:
+        if _producer is not None:
+            return _producer
+            
+        try:
+            _producer = KafkaProducer(
+                bootstrap_servers=[KAFKA_BROKER],
+                value_serializer=lambda x: json.dumps(x).encode('utf-8'),
+                max_block_ms=500, # Reduced from 1000 to minimize lag
+                request_timeout_ms=500,
+                api_version_auto_timeout_ms=500
+            )
+            return _producer
+        except Exception as e:
+            print(f"Kafka Producer init failed: {e}")
+            return None
 
 def send_message_event(sender_id, receiver_id, content, reply_to_id=None):
     """Send a new chat message. Tries Kafka first, falls back to sync."""
@@ -35,9 +46,11 @@ def send_message_event(sender_id, receiver_id, content, reply_to_id=None):
         'content': content,
         'reply_to_id': reply_to_id,
     }
-    if producer:
+    
+    current_producer = get_producer()
+    if current_producer:
         try:
-            future = producer.send(KAFKA_TOPIC, value=data)
+            future = current_producer.send(KAFKA_TOPIC, value=data)
             future.get(timeout=0.5)
         except Exception as e:
             print(f"Kafka delivery failed, falling back to sync: {e}")
