@@ -10,15 +10,11 @@ User = get_user_model()
 @database_sync_to_async
 def get_user(token):
     try:
-        print(f"--- WebSocket Auth Attempt with token length: {len(token)} ---")
         payload = jwt_decode(token)
         username = payload.get('username')
-        print(f"Decoded token for user: {username}")
         user = User.objects.get(username=username)
         return user
     except Exception as e:
-        print(f"WebSocket auth error: {str(e)}")
-        # print(traceback.format_exc())
         return AnonymousUser()
 
 class TokenAuthMiddleware:

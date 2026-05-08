@@ -33,7 +33,7 @@ class Query(graphene.ObjectType):
 
     @login_required
     def resolve_users(self, info):
-        return User.objects.exclude(id=info.context.user.id)
+        return User.objects.exclude(id=info.context.user.id).only('id', 'username', 'is_online')
 
     @login_required
     def resolve_messages(self, info, user_id):

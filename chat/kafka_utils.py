@@ -1,6 +1,5 @@
 import json
 import threading
-from kafka import KafkaProducer, KafkaConsumer
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.conf import settings
@@ -26,6 +25,7 @@ def get_producer():
             return _producer
             
         try:
+            from kafka import KafkaProducer
             _producer = KafkaProducer(
                 bootstrap_servers=[KAFKA_BROKER],
                 value_serializer=lambda x: json.dumps(x).encode('utf-8'),
@@ -121,6 +121,7 @@ def handle_message_sync(data):
 
 def start_kafka_consumer():
     try:
+        from kafka import KafkaConsumer
         consumer = KafkaConsumer(
             KAFKA_TOPIC,
             bootstrap_servers=[KAFKA_BROKER],

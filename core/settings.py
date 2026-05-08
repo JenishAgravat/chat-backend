@@ -117,6 +117,8 @@ if RAW_REDIS_URL:
             "BACKEND": "channels_redis.core.RedisChannelLayer",
             "CONFIG": {
                 "hosts": [REDIS_URL],
+                "socket_timeout": 5,
+                "socket_connect_timeout": 5,
             },
         }
     }
@@ -132,7 +134,7 @@ DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:
     import dj_database_url
     DATABASES = {
-        'default': dj_database_url.config(default=DATABASE_URL, conn_max_age=600)
+        'default': dj_database_url.config(default=DATABASE_URL, conn_max_age=0)
     }
 else:
     DATABASES = {
